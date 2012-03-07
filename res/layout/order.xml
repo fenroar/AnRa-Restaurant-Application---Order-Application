@@ -3,28 +3,26 @@
     android:layout_width="fill_parent"
     android:layout_height="fill_parent" >
 
-    <EditText
-        android:id="@+id/test_edit"
+    <Spinner
+        android:id="@+id/meal_spinner"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true" />
+    
+    <Spinner
+        android:id="@+id/side_spinner"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:layout_alignParentLeft="true"
-        android:layout_toLeftOf="@+id/add_button"
-        android:inputType="text"
-        android:text="" />
-
-    <Button
-        android:id="@+id/add_button"
-        android:layout_width="100dp"
-        android:layout_height="wrap_content"
-        android:layout_alignParentRight="true"
-        android:text="@string/add" />
+        android:layout_below="@+id/meal_spinner"
+        android:layout_toLeftOf="@+id/add_button" />
 
     <ListView
         android:id="@+id/list"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:layout_alignParentLeft="true"
-        android:layout_below="@+id/test_edit"
+        android:layout_below="@+id/side_spinner"
         android:layout_above="@+id/checkout_button" >
     </ListView>
     
@@ -35,5 +33,13 @@
         android:layout_alignParentBottom="true"
         android:layout_alignParentRight="true"
         android:text="@string/checkout" />
+
+    <Button
+        android:id="@+id/add_button"
+        android:layout_width="100dp"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/list"
+        android:layout_alignParentRight="true"
+        android:text="@string/add" />
 
 </RelativeLayout>

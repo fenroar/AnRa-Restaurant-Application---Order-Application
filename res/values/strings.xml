@@ -2,7 +2,18 @@
 <resources>
 
     <string name="hello">Hello World, OrderClientActivity!</string>
-    <string name="app_name">Order Client</string>
+    <string name="app_name">AnRa Order Client</string>
     <string name="add">Add</string>
     <string name="checkout">Check out</string>
+
+    <string-array name="side_array">
+        <item>Boiled Rice</item>
+        <item>Chips</item>
+        <item>Fried Rice</item>
+        <item>Chow Mein</item>
+        <item>Boiled Rice and Chips</item>
+        <item>Fried Rice and Chips</item>
+        <item>Salt and Pepper Chips</item>      
+    </string-array>
+
 </resources>
