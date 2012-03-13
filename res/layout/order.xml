@@ -4,28 +4,36 @@
     android:layout_height="fill_parent" >
 
     <Spinner
-        android:id="@+id/meal_spinner"
+        android:id="@+id/main_spinner"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content" 
+        android:prompt="@string/select_main"/>
+
+    <Spinner
+        android:id="@+id/type_spinner"
         android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentLeft="true" />
-    
+        android:layout_below="@+id/main_spinner"
+        android:prompt="@string/select_type" />
+
     <Spinner
         android:id="@+id/side_spinner"
         android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:layout_alignParentLeft="true"
-        android:layout_below="@+id/meal_spinner"
-        android:layout_toLeftOf="@+id/add_button" />
+        android:layout_below="@+id/type_spinner"
+        android:layout_toLeftOf="@+id/add_button" 
+        android:prompt="@string/select_side"/>
 
     <ListView
         android:id="@+id/list"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
+        android:layout_above="@+id/checkout_button"
         android:layout_alignParentLeft="true"
-        android:layout_below="@+id/side_spinner"
-        android:layout_above="@+id/checkout_button" >
+        android:layout_below="@+id/side_spinner" >
     </ListView>
-    
+
     <Button
         android:id="@+id/checkout_button"
         android:layout_width="fill_parent"

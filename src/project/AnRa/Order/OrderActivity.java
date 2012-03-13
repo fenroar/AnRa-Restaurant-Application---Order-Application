@@ -1,24 +1,19 @@
 package project.AnRa.Order;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.net.SocketTimeoutException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
@@ -34,188 +29,340 @@ import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.Toast;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
 public class OrderActivity extends Activity {
-	private ArrayList<Meal> mealList = new ArrayList<Meal>();
-	private ArrayAdapter<Meal> mealAdapter;
+	private static final int REQUEST_CODE = 101;
+	private static final String URL_1 = "http://soba.cs.man.ac.uk/~sup9/AnRa/php/getAllMealMain.php";
+	private static final String URL_2 = "http://soba.cs.man.ac.uk/~sup9/AnRa/php/getAllMealType.php";
+	public ArrayList<Meal> mealList = new ArrayList<Meal>();
 	private MealAdapter mAdapter;
-	private Meal meal;
-	private HashMap<String, String> menu = new HashMap<String, String>();
+	// menu: value[0] = id, value[1] = price
+	private HashMap<String, String[]> menu = new HashMap<String, String[]>();
 	private HashMap<String, BigDecimal> sidePrices = new HashMap<String, BigDecimal>();
 	private BigDecimal basePrice;
+
+	// Checks if there is a connection with the Internet/mobile network
+	// Check is done in a separate thread form the UI thread
+	private class Check extends AsyncTask<Void, Void, Boolean> {
+		@Override
+		protected Boolean doInBackground(Void... params) {
+			ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+			NetworkInfo netInfo = cm.getActiveNetworkInfo();
+			if (netInfo != null && netInfo.isConnectedOrConnecting()) {
+				return true;
+			}
+			return false;
+		}
+
+		@Override
+		protected void onCancelled() {
+
+			super.onCancelled();
+		}
+
+		@Override
+		protected void onPostExecute(Boolean result) {
+			super.onPostExecute(result);
+
+			final ListView lv = (ListView) findViewById(R.id.list);
+
+			final Button addButton = (Button) findViewById(R.id.add_button);
+			final Button checkoutButton = (Button) findViewById(R.id.checkout_button);
+			final Spinner mainSpinner = (Spinner) findViewById(R.id.main_spinner);
+			final Spinner typeSpinner = (Spinner) findViewById(R.id.type_spinner);
+			final Spinner sideSpinner = (Spinner) findViewById(R.id.side_spinner);
+
+			if (result) {
+				// sets up values for sides and gets base price
+				setSidePrices();
+				new GetBasePrice(OrderActivity.this).execute();
+
+				mAdapter = new MealAdapter(OrderActivity.this, R.layout.row,
+						mealList);
+				lv.setAdapter(mAdapter);
+
+				mainSpinner.setEnabled(true);
+				typeSpinner.setEnabled(true);
+				sideSpinner.setEnabled(true);
+				addButton.setEnabled(true);
+				checkoutButton.setEnabled(true);
+
+				// Initialize menu (All current items in menu with their
+				// respective
+				// price)
+				new InitialiseMenuItems(OrderActivity.this).execute();
+
+				// Initializing adapters to populate spinner
+				new InitialiseSpinnner(OrderActivity.this, mainSpinner)
+						.execute(URL_1, "main_name");
+				new InitialiseSpinnner(OrderActivity.this, typeSpinner)
+						.execute(URL_2, "type_name");
+
+				// Initializing sideSpinner adapter
+				ArrayAdapter<CharSequence> sideAdapter = ArrayAdapter
+						.createFromResource(OrderActivity.this,
+								R.array.side_array,
+								android.R.layout.simple_spinner_item);
+				sideAdapter
+						.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+				sideSpinner.setAdapter(sideAdapter);
+
+				// addButton onClickListener
+				addButton.setOnClickListener(new View.OnClickListener() {
+					@Override
+					public void onClick(View v) {
+						try {
+							if ((!(mainSpinner.getSelectedItem() == null))
+									&& (!(typeSpinner.getSelectedItem() == null))) {
+
+								String mealName = mainSpinner.getSelectedItem()
+										.toString()
+										+ " "
+										+ typeSpinner.getSelectedItem()
+												.toString();
+								Log.e("mealName", mealName);
+
+								if (menu.containsKey(mealName)) {
+
+									String id = menu.get(mealName)[0];
+									Log.e("Meal ID:", id);
+
+									Double priceInDouble = Double
+											.parseDouble(menu.get(mealName)[1]);
+									Log.e("PriceInDouble", "" + priceInDouble);
+
+									BigDecimal totalPrice = sidePrices
+											.get(sideSpinner.getSelectedItem()
+													.toString())
+											.add(BigDecimal
+													.valueOf(priceInDouble))
+											.add(basePrice);
+
+									Log.e("totalPrice", "" + totalPrice);
+									DecimalFormat decim = new DecimalFormat(
+											"0.00");
+									String s = decim.format(totalPrice);
+									Log.e("s", "s is '" + s + "'");
+
+									Log.e("Side", sideSpinner.getSelectedItem()
+											.toString());
+									Meal meal;
+									if (sideSpinner.getSelectedItem()
+											.toString().equals("None")) {
+										meal = new Meal(id, mealName, s);
+									} else {
+										meal = new Meal(id, mealName
+												+ "\n"
+												+ sideSpinner.getSelectedItem()
+														.toString(), s);
+									}
+									mealList.add(meal);
+									mAdapter.notifyDataSetChanged();
+
+								} else
+									Toast.makeText(OrderActivity.this,
+											mealName + " doesn't exists",
+											Toast.LENGTH_SHORT).show();
+							} else {
+								Toast.makeText(OrderActivity.this,
+										"You need to select a main and a type",
+										Toast.LENGTH_SHORT).show();
+							}
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+				});
+
+				// checkoutButton onClickListener
+				checkoutButton.setOnClickListener(new View.OnClickListener() {
+
+					@Override
+					public void onClick(View v) {
+
+						if (mealList.size() > 0) {
+							// passes values into new activity
+							Log.e("Order", "Check out");
+							Intent intent = new Intent().setClass(
+									getBaseContext(), CheckoutActivity.class);
+							ArrayList<Meal> newMealList = new ArrayList<Meal>();
+
+							for (int i = 0; i < mealList.size(); i++) {
+								newMealList.add(mealList.get(i));
+							}
+
+							intent.putParcelableArrayListExtra("Meal list",
+									newMealList);
+							startActivityForResult(intent, REQUEST_CODE);
+						} else {
+							Toast.makeText(OrderActivity.this,
+									"You have not placed any orders",
+									Toast.LENGTH_SHORT).show();
+						}
+
+					}
+				});
+
+				// listView onClickListener
+				lv.setOnItemClickListener(new ListView.OnItemClickListener() {
+
+					@Override
+					public void onItemClick(AdapterView<?> a, View v,
+							final int position, long l) {
+
+						try {
+							DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
+								@Override
+								public void onClick(DialogInterface dialog,
+										int which) {
+									switch (which) {
+									case DialogInterface.BUTTON_POSITIVE:
+										// Add notes button clicked
+
+										final EditText input = new EditText(
+												OrderActivity.this);
+
+										input.setHint(mealList.get(position)
+												.getMealExtraNotes());
+										new AlertDialog.Builder(
+												OrderActivity.this)
+												.setTitle("Update Status")
+												.setMessage(
+														"Please input any extra details: ")
+												.setView(input)
+												.setPositiveButton(
+														"Ok",
+														new DialogInterface.OnClickListener() {
+															public void onClick(
+																	DialogInterface dialog,
+																	int whichButton) {
+																String value = input
+																		.getText()
+																		.toString();
+
+																// makes new
+																// Meal Object
+																// with current
+																// meal
+																// object's data
+																// plus extra
+																// notes
+																mealList.set(
+																		position,
+																		new Meal(
+																				mealList.get(
+																						position)
+																						.getMealID(),
+																				mealList.get(
+																						position)
+																						.getMealName(),
+																				mealList.get(
+																						position)
+																						.getMealPrice(),
+																				value));
+
+																mAdapter.notifyDataSetChanged();
+
+															}
+														})
+												.setNegativeButton(
+														"Cancel",
+														new DialogInterface.OnClickListener() {
+															public void onClick(
+																	DialogInterface dialog,
+																	int whichButton) {
+																// Do nothing.
+															}
+														}).show();
+
+										break;
+
+									case DialogInterface.BUTTON_NEGATIVE:
+										// Does nothing
+										break;
+
+									case DialogInterface.BUTTON_NEUTRAL:
+										// Delete button clicked
+										// Remembers the selected Index
+										Log.e("Order", mealList.get(position)
+												.getMealName() + " deleted");
+										mealList.remove(position);
+										mAdapter.notifyDataSetChanged();
+										break;
+
+									}
+								}
+							};
+
+							AlertDialog.Builder builder = new AlertDialog.Builder(
+									OrderActivity.this);
+							builder.setMessage(
+									"What do you want to do with "
+											+ mealList.get(position)
+													.getMealName()
+											+ "? \n"
+											+ "Extra notes: "
+											+ mealList.get(position)
+													.getMealExtraNotes())
+									.setPositiveButton("Add Notes",
+											dialogClickListener)
+									.setNeutralButton("Delete",
+											dialogClickListener)
+									.setNegativeButton("Cancel",
+											dialogClickListener).show();
+
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+				});
+			} else {
+				// disables buttons
+
+				addButton.setEnabled(false);
+				checkoutButton.setEnabled(false);
+				mainSpinner.setEnabled(false);
+				typeSpinner.setEnabled(false);
+				sideSpinner.setEnabled(false);
+
+				// dialog message to say that no connection to internet
+				Toast.makeText(
+						OrderActivity.this,
+						"Please connect to the internet to use this application.",
+						Toast.LENGTH_LONG).show();
+			}
+		}
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		if (menu.isEmpty())
+			if (check == null) {
+				check = new Check();
+				check.execute();
+			}
+		if (mAdapter != null) {
+			mealList.clear();
+			mAdapter.notifyDataSetChanged();
+		}
+	}
+
+	Check check = null;
+
+	@Override
+	protected void onPause() {
+		// interrupt check
+		if (check != null) {
+			check.cancel(true);
+			check = null;
+		}
+		super.onPause();
+	}
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.order);
-
-		//sets up values for sides and gets base price
-		setSidePrices();
-		new GetBasePrice(this).execute();
-
-		// Sets up adapter for list of items being ordered
-		mAdapter = new MealAdapter(this, R.layout.row, mealList);
-		final ListView lv = (ListView) findViewById(R.id.list);
-		lv.setAdapter(mAdapter);
-
-		final Button addButton = (Button) findViewById(R.id.add_button);
-		final Button checkoutButton = (Button) findViewById(R.id.checkout_button);
-		final Spinner mealSpinner = (Spinner) this
-				.findViewById(R.id.meal_spinner);
-		final Spinner sideSpinner = (Spinner) findViewById(R.id.side_spinner);
-
-		// Initialising adapters to populate spinner
-		// Iinitialising mealSpinner adapter
-		new InitialiseMealSpinnner(mealSpinner).execute();
-
-		// Initialising sideSpinner adapter
-		ArrayAdapter<CharSequence> sideAdapter = ArrayAdapter
-				.createFromResource(OrderActivity.this, R.array.side_array,
-						android.R.layout.simple_spinner_item);
-		sideAdapter
-				.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-		sideSpinner.setAdapter(sideAdapter);
-
-		// addButton onClickListener
-		addButton.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				if (!(mealSpinner.getSelectedItem() == null)) {
-					Double priceInDouble = Double
-							.parseDouble(((Meal) mealSpinner.getSelectedItem())
-									.getMealPrice());
-					Log.e("PriceInDouble", "" + priceInDouble);
-
-					BigDecimal totalPrice = sidePrices.get(
-							sideSpinner.getSelectedItem().toString()).add(
-							BigDecimal.valueOf(priceInDouble)).add(basePrice);
-
-					Log.e("totalPrice", "" + totalPrice);
-					DecimalFormat decim = new DecimalFormat("0.00");
-					String s = decim.format(totalPrice);
-					Log.e("s", "s is '" + s + "'");
-
-					meal = new Meal(((Meal) mealSpinner.getSelectedItem())
-							.getMealName()
-							+ " "
-							+ sideSpinner.getSelectedItem().toString(), "" + s);
-					mealList.add(meal);
-					mAdapter.notifyDataSetChanged();
-				} else {
-					Toast.makeText(OrderActivity.this, "No meals in database",
-							Toast.LENGTH_SHORT).show();
-				}
-			}
-		});
-
-		// checkoutButton onClickListener
-		checkoutButton.setOnClickListener(new View.OnClickListener() {
-
-			@Override
-			public void onClick(View v) {
-				// passes values into new activity
-				Log.e("Order", "Check out");
-			}
-		});
-
-		// listView onClickListener
-		lv.setOnItemClickListener(new ListView.OnItemClickListener() {
-
-			@Override
-			public void onItemClick(AdapterView<?> a, View v,
-					final int position, long l) {
-
-				try {
-					DialogInterface.OnClickListener dialogClickListener = new DialogInterface.OnClickListener() {
-						@Override
-						public void onClick(DialogInterface dialog, int which) {
-							switch (which) {
-							case DialogInterface.BUTTON_POSITIVE:
-								// Add notes button clicked
-
-								final EditText input = new EditText(
-										OrderActivity.this);
-								new AlertDialog.Builder(OrderActivity.this)
-										.setTitle("Update Status")
-										.setMessage(
-												"Please input any extra details: ")
-										.setView(input)
-										.setPositiveButton(
-												"Ok",
-												new DialogInterface.OnClickListener() {
-													public void onClick(
-															DialogInterface dialog,
-															int whichButton) {
-														String value = input
-																.getText()
-																.toString();
-
-														// makes new Meal Object
-														// with current meal object's data
-														// plus extra notes
-														mealList.set(
-																position,
-																new Meal(
-																		mealList.get(
-																				position)
-																				.getMealName(),
-																		mealList.get(
-																				position)
-																				.getMealPrice(),
-																		value));
-
-														mAdapter.notifyDataSetChanged();
-
-													}
-												})
-										.setNegativeButton(
-												"Cancel",
-												new DialogInterface.OnClickListener() {
-													public void onClick(
-															DialogInterface dialog,
-															int whichButton) {
-														// Do nothing.
-													}
-												}).show();
-
-								break;
-
-							case DialogInterface.BUTTON_NEGATIVE:
-								// Delete button clicked
-								// Remembers the selected Index
-								Log.e("Order", mealList.get(position)
-										.getMealName() + " deleted");
-								mealList.remove(position);
-								mAdapter.notifyDataSetChanged();
-								break;
-
-							}
-						}
-					};
-
-					AlertDialog.Builder builder = new AlertDialog.Builder(
-							OrderActivity.this);
-					builder.setMessage(
-							"What do you want to do with "
-									+ mealList.get(position).getMealName()
-									+ "? \n"
-									+ "Extra notes: "
-									+ mealList.get(position)
-											.getMealExtraNotes())
-							.setPositiveButton("Add Notes", dialogClickListener)
-							.setNegativeButton("Delete", dialogClickListener)
-							.show();
-
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-		});
-
 	}
 
 	@Override
@@ -245,108 +392,6 @@ public class OrderActivity extends Activity {
 
 	}// onOptionsItemSelected
 
-	private class InitialiseMealSpinnner extends
-			AsyncTask<String, Void, ArrayAdapter<Meal>> {
-		private static final String URL = "http://soba.cs.man.ac.uk/~sup9/AnRa/php/getMenuList.php";
-		private ProgressDialog mProgressDialog = null;
-		private final Spinner spinner;
-
-		// Constructor to get spinner
-		public InitialiseMealSpinnner(Spinner s) {
-			spinner = s;
-		}
-
-		@Override
-		protected void onPreExecute() {
-			mProgressDialog = ProgressDialog.show(OrderActivity.this,
-					"Please Wait ...", "Getting menu ...", true);
-			super.onPreExecute();
-		}
-
-		@Override
-		protected ArrayAdapter<Meal> doInBackground(String... params) {
-			// JsonArray that stores all the meal types
-			JsonElement jsonElement = null;
-			final HttpGet httpgetaddress = new HttpGet(URL);
-			// Default Initialization starts here
-			final HttpClient httpclient = new DefaultHttpClient();
-
-			HttpResponse result = null;
-			try {
-				result = httpclient.execute(httpgetaddress);
-			} catch (SocketTimeoutException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-
-			if (result != null) {
-				BufferedReader br = null;
-				String json;
-				try {
-					br = new BufferedReader(new InputStreamReader(result
-							.getEntity().getContent()));
-					json = "";
-					String s;
-					while ((s = br.readLine()) != null) {
-						json += s;
-					}
-					jsonElement = new JsonParser().parse(json);
-				} catch (final IOException e) {
-					e.printStackTrace();
-				} finally {
-					if (br != null) {
-						try {
-							br.close();
-						} catch (final IOException e) {
-							e.printStackTrace();
-						} // catch
-					} // if
-				} // finally
-			}// if
-
-			try {
-				final JsonArray jsonArray = jsonElement.getAsJsonArray();
-				final Meal[] array_spinner = new Meal[jsonArray.size()];
-
-				int i = 0;
-				for (final JsonElement je : jsonArray) {
-					final JsonObject jo = je.getAsJsonObject();
-					final String name = jo.getAsJsonPrimitive("name")
-							.getAsString();
-					final String price = jo.getAsJsonPrimitive("price")
-							.getAsString();
-					menu.put(name, price);
-					array_spinner[i] = new Meal(name, price);
-					i++;
-				}// for
-
-				ArrayAdapter<Meal> adapter = new ArrayAdapter<Meal>(
-						OrderActivity.this,
-						android.R.layout.simple_spinner_item, array_spinner);
-
-				adapter.setDropDownViewResource(R.layout.spinner);
-				return adapter;
-
-			} catch (IllegalStateException e) {
-				e.printStackTrace();
-				return null;
-			}// catch
-		}// doInBackground
-
-		@Override
-		protected void onPostExecute(ArrayAdapter<Meal> result) {
-			// TODO Auto-generated method stub
-			super.onPostExecute(result);
-			mProgressDialog.dismiss();
-			mealAdapter = result;
-			mealAdapter
-					.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-			spinner.setAdapter(mealAdapter);
-		}
-
-	}
-
 	public void setSidePrices() {
 		sidePrices.put("Boiled Rice", BigDecimal.valueOf(0.00));
 		sidePrices.put("Chips", BigDecimal.valueOf(0.00));
@@ -355,19 +400,33 @@ public class OrderActivity extends Activity {
 		sidePrices.put("Fried Rice and Chips", BigDecimal.valueOf(0.50));
 		sidePrices.put("Salt and Pepper Chips", BigDecimal.valueOf(1.00));
 		sidePrices.put("Chow Mein", BigDecimal.valueOf(0.70));
+		sidePrices.put("None", BigDecimal.valueOf(-0.30));
 	}
-	
-	
-	//gets base price of meals
+
+	// gets base price of meals
 	private final class GetBasePrice extends BasePrice {
 		public GetBasePrice(Context c) {
 			super(c);
-		}//Constructor
+		}// Constructor
 
 		@Override
 		protected void onPostExecute(HttpResponse r) {
 			super.onPostExecute(r);
 			basePrice = getPrice();
-		}//onPostExecute
+		}// onPostExecute
 	}// getBasePrice
+
+	// gets menu items
+	private final class InitialiseMenuItems extends InitialiseMenu {
+		public InitialiseMenuItems(Context c) {
+			super(c);
+		}
+
+		@Override
+		protected void onPostExecute(HttpResponse result) {
+			// TODO Auto-generated method stub
+			super.onPostExecute(result);
+			menu = getMenu();
+		}
+	}
 }
