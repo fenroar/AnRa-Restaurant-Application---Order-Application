@@ -8,6 +8,7 @@ import org.apache.http.HttpResponse;
 
 import android.app.Activity;
 import android.content.Context;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -17,6 +18,7 @@ import android.widget.Toast;
 
 public class CheckoutActivity extends Activity {
 	private ArrayList<Meal> checkoutList = new ArrayList<Meal>();
+	private AsyncTask<String, Void, HttpResponse> order;
 	private CheckoutMealAdapter mAdapter;
 	private String order_id;
 
@@ -34,7 +36,9 @@ public class CheckoutActivity extends Activity {
 				R.layout.checkout_row, checkoutList);
 		lv.setAdapter(mAdapter);
 		mAdapter.notifyDataSetChanged();
-		new GetOrderID(CheckoutActivity.this).execute();
+		
+		if (order == null)
+			order = new GetOrderID(CheckoutActivity.this).execute();
 
 		for (int i = 0; i < checkoutList.size(); i++) {
 			Meal meal = checkoutList.get(i);

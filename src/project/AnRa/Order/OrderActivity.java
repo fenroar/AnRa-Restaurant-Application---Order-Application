@@ -384,6 +384,10 @@ public class OrderActivity extends Activity {
 			mealList.clear();
 			mAdapter.notifyDataSetChanged();
 			break;
+			
+		case R.id.complete_orders:
+			//new activity that shows all orders that are completed
+			break;
 
 		default:
 			return super.onOptionsItemSelected(item);

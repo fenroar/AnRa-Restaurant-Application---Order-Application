@@ -26,6 +26,7 @@ public final class R {
         public static final int checkout_button=0x7f07000c;
         public static final int clear=0x7f07000e;
         public static final int complete_button=0x7f070003;
+        public static final int complete_orders=0x7f07000f;
         public static final int left_text=0x7f070005;
         public static final int list=0x7f070001;
         public static final int main_spinner=0x7f070008;
@@ -48,11 +49,12 @@ public final class R {
     public static final class string {
         public static final int add=0x7f040002;
         public static final int app_name=0x7f040001;
+        public static final int cancel=0x7f040005;
         public static final int checkout=0x7f040003;
         public static final int complete=0x7f040004;
         public static final int hello=0x7f040000;
-        public static final int select_main=0x7f040005;
-        public static final int select_side=0x7f040007;
-        public static final int select_type=0x7f040006;
+        public static final int select_main=0x7f040006;
+        public static final int select_side=0x7f040008;
+        public static final int select_type=0x7f040007;
     }
 }

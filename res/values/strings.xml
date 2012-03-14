@@ -6,6 +6,7 @@
     <string name="add">Add</string>
     <string name="checkout">Check out</string>
 	<string name="complete">Complete transaction</string>
+	<string name="cancel">Cancel transaction</string>
 	
 	<string name="select_main">Select main</string>
 	<string name="select_type">Select type</string>

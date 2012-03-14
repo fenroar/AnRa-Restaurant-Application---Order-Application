@@ -4,5 +4,10 @@
         android:id="@+id/clear"
         android:icon="@drawable/clear"
         android:title="Clear"/>
+    
+    <item
+        android:id="@+id/complete_orders"
+        android:icon="@drawable/logo3"
+        android:title="Complete Orders"/>
 
 </menu>
